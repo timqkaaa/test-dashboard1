@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deep Analytics | Full Dashboard Fixed</title>
+    <title>Deep Analytics | CPC Efficiency Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -23,7 +23,7 @@
         .container { max-width: 1400px; margin: 0 auto; }
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         h1 { font-size: 2rem; font-weight: 800; margin: 0; letter-spacing: -1px; background: var(--header-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .theme-toggle { background: var(--accent-main); color: white; padding: 10px 20px; border-radius: 12px; cursor: pointer; font-weight: 700; border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 0 15px rgba(59,130,246,0.4); }
+        .theme-toggle { background: var(--accent-main); color: white; padding: 10px 20px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 0.85rem; border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 0 15px rgba(59,130,246,0.4); }
         .card { background: var(--card-bg); border-radius: 16px; padding: 25px; box-shadow: var(--shadow); border: 1px solid var(--border-color); }
         .filters { display: flex; gap: 15px; padding: 20px; border-radius: 16px; margin-bottom: 30px; flex-wrap: wrap; background: var(--card-bg); border: 1px solid var(--border-color); }
         .filter-group { display: flex; flex-direction: column; gap: 6px; }
@@ -48,7 +48,7 @@
 </head>
 <body>
 
-<div id="loading-overlay" class="loading-overlay">Восстановление графиков и CPC...</div>
+<div id="loading-overlay" class="loading-overlay">Обновление логики статусов (CPC)...</div>
 
 <div class="container" id="dashboard-content" style="display:none;">
     <header>
@@ -87,7 +87,7 @@
                     <th>Лиды</th>
                     <th>CPL ($)</th>
                     <th>CPC ($)</th>
-                    <th>Статус</th>
+                    <th>Статус (CPC)</th>
                 </tr>
             </thead>
             <tbody id="tableBody"></tbody>
@@ -251,7 +251,8 @@
         list.forEach((row, rowIndex) => {
             const cpl = row.leads > 0 ? (row.spend/row.leads) : 0;
             const cpc = row.cpcSum / row.count;
-            const status = cpl <= 0.35 ? 'bg-green' : 'bg-red';
+            // НОВАЯ ЛОГИКА: OK если CPC <= 0.25, иначе HIGH
+            const status = cpc <= 0.25 ? 'bg-green' : 'bg-red';
             
             const tr = document.createElement('tr');
             tr.style.cursor = 'pointer';
@@ -262,28 +263,38 @@
                 <td>${row.leads}</td>
                 <td>$${cpl.toFixed(2)}</td>
                 <td>$${cpc.toFixed(2)}</td>
-                <td><span class="status-badge ${status}">${cpl <= 0.35 ? 'OK' : 'HIGH'}</span></td>
+                <td><span class="status-badge ${status}">${cpc <= 0.25 ? 'OK' : 'HIGH'}</span></td>
             `;
 
             const detTr = document.createElement('tr');
             detTr.className = 'details-row'; detTr.style.display = 'none';
-            let detHtml = `<td colspan="7" style="padding:0 40px 15px 40px"><table class="details-table"><thead><tr><th>ГЕО</th><th>Расход</th><th>Лиды</th><th>CPL</th><th>CPC</th></tr></thead><tbody>`;
+            let detHtml = `<td colspan="7" style="padding:0 40px 15px 40px"><table class="details-table"><thead><tr><th>ГЕО</th><th>Расход</th><th>Лиды</th><th>CPL</th><th>CPC</th><th>Статус</th></tr></thead><tbody>`;
             
             Object.entries(row.countries).forEach(([geo, gData], geoIdx) => {
                 const geoId = `geo-${rowIndex}-${geoIdx}`;
                 const gCpc = gData.cpcSum / gData.count;
+                const gStatus = gCpc <= 0.25 ? 'bg-green' : 'bg-red';
+                
                 detHtml += `
                     <tr style="cursor:pointer" onclick="toggleCampaigns('${geoId}')">
                         <td><span class="geo-icon-${geoId}" style="margin-right:5px">▶</span>${geo}</td>
                         <td>$${gData.spend.toFixed(2)}</td><td>${gData.leads}</td>
                         <td>$${(gData.leads > 0 ? gData.spend/gData.leads : 0).toFixed(2)}</td>
                         <td>$${gCpc.toFixed(2)}</td>
+                        <td><span class="status-badge ${gStatus}">${gCpc <= 0.25 ? 'OK' : 'HIGH'}</span></td>
                     </tr>
-                    <tr id="${geoId}" class="camp-row"><td colspan="5" style="padding: 5px 20px">
+                    <tr id="${geoId}" class="camp-row"><td colspan="6" style="padding: 5px 20px">
                         <table style="width:100%; font-size:0.75rem; border:1px dashed var(--border-color)">
-                            <tr style="background:var(--primary-bg)"><th>№ Компании</th><th>Расход</th><th>Лиды</th><th>CPL</th><th>CPC</th></tr>
+                            <tr style="background:var(--primary-bg)"><th>№ Компании</th><th>Расход</th><th>Лиды</th><th>CPL</th><th>CPC</th><th>Статус</th></tr>
                             ${Object.entries(gData.campaigns).map(([camp, cData]) => `
-                                <tr><td>${camp}</td><td>$${cData.spend.toFixed(2)}</td><td>${cData.leads}</td><td>$${(cData.leads > 0 ? cData.spend/cData.leads : 0).toFixed(2)}</td><td>$${cData.cpc.toFixed(2)}</td></tr>
+                                <tr>
+                                    <td>${camp}</td>
+                                    <td>$${cData.spend.toFixed(2)}</td>
+                                    <td>${cData.leads}</td>
+                                    <td>$${(cData.leads > 0 ? cData.spend/cData.leads : 0).toFixed(2)}</td>
+                                    <td>$${cData.cpc.toFixed(2)}</td>
+                                    <td><span class="status-badge ${cData.cpc <= 0.25 ? 'bg-green' : 'bg-red'}">${cData.cpc <= 0.25 ? 'OK' : 'HIGH'}</span></td>
+                                </tr>
                             `).join('')}
                         </table>
                     </td></tr>`;
